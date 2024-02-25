@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
     });
     lib.linkLibC();
     lib.addCSourceFiles(.{
-        .dependency = upstream,
+        .root = upstream.path(""),
         .files = &.{
             "adler32.c",
             "crc32.c",
