@@ -34,10 +34,7 @@ pub fn build(b: *std.Build) void {
             "-DZ_HAVE_UNISTD_H",
         },
     });
-    lib.installHeadersDirectoryOptions(.{
-        .source_dir = upstream.path(""),
-        .install_dir = .header,
-        .install_subdir = "",
+    lib.installHeadersDirectory(upstream.path(""), "", .{
         .include_extensions = &.{
             "zconf.h",
             "zlib.h",
