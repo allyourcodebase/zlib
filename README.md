@@ -18,7 +18,7 @@ const zlib_dep = b.dependency("zlib", .{
     .target = target,
     .optimize = optimize,
 });
-your_compilation.linkLibrary(libz_dep.artifact("z"));
+your_compilation.linkLibrary(zlib_dep.artifact("z"));
 ```
 
 This will provide zlib as a static library to `your_compilation`.
