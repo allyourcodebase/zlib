@@ -1,0 +1,26 @@
+name: CI - Zig
+
+on:
+  create:
+  push:
+    branches: main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          # Because of https://github.com/ziglang/zig/issues/23120 we wan't use
+          # 0.14.0.
+          # Wait for 0.14.1 to be released.
+          version: master
+      - run: zig build
+      - run: zig build test
