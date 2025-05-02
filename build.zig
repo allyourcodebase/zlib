@@ -75,4 +75,35 @@ pub fn build(b: *std.Build) void {
         .dest_sub_path = output_name,
     });
     b.getInstallStep().dependOn(&install_step.step);
+
+    // Testing is about running the test binaries and checking they return 0.
+    const test_step = b.step("test", "Run tests");
+    const example = addTestExecutable(b, target, optimize, upstream, lib, "example", "test/example.c");
+    test_step.dependOn(&example.step);
+    const examplesh = addTestExecutable(b, target, optimize, upstream, dynamic_lib, "examplesh", "test/example.c");
+    test_step.dependOn(&examplesh.step);
+}
+
+fn addTestExecutable(b: *std.Build, target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode, zlib: *std.Build.Dependency, lib: *std.Build.Step.Compile,
+    name: []const u8, filename: []const u8) *std.Build.Step.Run {
+    const test_exe_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .single_threaded = true,
+    });
+    test_exe_mod.addCSourceFiles(.{
+        .root = zlib.path("."),
+        .files = &[_][]const u8{
+            filename,
+        },
+    });
+    test_exe_mod.linkLibrary(lib);
+    const test_exe = b.addExecutable(.{
+        .name = name,
+        .root_module = test_exe_mod,
+    });
+    const run_exe_tests = b.addRunArtifact(test_exe);
+    return run_exe_tests;
 }
