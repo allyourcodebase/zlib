@@ -1,7 +1,6 @@
 const std = @import("std");
 const Io = std.Io;
 const Self = @This();
-const Deflater = Self;
 const Container = std.compress.flate.Container;
 const Decompress = std.compress.flate.Decompress;
 const zlib = @import("zlib_h");
@@ -221,15 +220,15 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
             const input = Input.fromBytes(inbuf);
 
             var ow = std.Io.Writer.fixed(ctx.ob);
-            var deflater: Deflater = try .init(.{
+            var deflate: Self = try .init(.{
                 .allocator = std.testing.allocator,
                 .writer = &ow,
                 .container = input.container,
             });
-            defer deflater.deinit();
+            defer deflate.deinit();
 
-            try deflater.writer.writeAll(input.bytes);
-            try deflater.finish();
+            try deflate.writer.writeAll(input.bytes);
+            try deflate.finish();
 
             var infr = std.Io.Reader.fixed(ow.buffered());
             var inf = Decompress.init(
