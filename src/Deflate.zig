@@ -91,8 +91,7 @@ inline fn zStreamInit(self: *@This()) !void {
 fn drain(wr: *Io.Writer, blobs: []const []const u8, splat: usize) error{WriteFailed}!usize {
     const self: *Self = @fieldParentPtr("writer", wr);
     self.zStreamInit() catch |err| {
-        std.log.err("zstream:\n{any}", .{self.zstream});
-        std.log.err("zlib error: {}\n", .{err});
+        std.log.err("zlib error: {}", .{err});
         return error.WriteFailed;
     };
 
@@ -119,15 +118,13 @@ fn zdrain(self: *Self, blob: []const u8, flush_flag: c_int) !void {
         self.zstream.next_out = self.outbuf.ptr;
         self.zstream.avail_out = @intCast(self.outbuf.len);
 
-        // std.log.warn("zdrain input: {} {x}", .{ self.zstream.avail_in, self.zstream.next_in[0..self.zstream.avail_in] });
         zLibError(zlib.deflate(&self.zstream, flush_flag)) catch |err| {
             if (flush_flag == zlib.Z_FINISH and err == error.Z_STREAM_END) {
                 const have = self.outbuf.len - self.zstream.avail_out;
                 try self.underlying_writer.writeAll(self.outbuf[0..have]);
                 break;
             }
-            std.log.err("zstream:\n{any}", .{self.zstream});
-            std.log.err("zlib error: {}\n", .{err});
+            std.log.err("zlib error: {}", .{err});
             return error.WriteFailed;
         };
         const have = self.outbuf.len - self.zstream.avail_out;
@@ -143,8 +140,7 @@ fn sendFile(
 ) Io.Writer.FileError!usize {
     const self: *Self = @fieldParentPtr("writer", wr);
     self.zStreamInit() catch |err| {
-        std.log.err("zstream:\n{any}", .{self.zstream});
-        std.log.err("zlib error: {}\n", .{err});
+        std.log.err("zlib error: {}", .{err});
         return error.WriteFailed;
     };
 
@@ -164,8 +160,7 @@ fn sendFile(
 fn flush(wr: *Io.Writer) Io.Writer.Error!void {
     const self: *Self = @fieldParentPtr("writer", wr);
     self.zStreamInit() catch |err| {
-        std.log.err("zstream:\n{any}", .{self.zstream});
-        std.log.err("zlib error: {}\n", .{err});
+        std.log.err("zlib error: {}", .{err});
         return error.WriteFailed;
     };
 
@@ -194,7 +189,7 @@ fn zLibError(ret: c_int) !void {
         zlib.Z_STREAM_END => error.Z_STREAM_END,
         zlib.Z_STREAM_ERROR => error.Z_STREAM_ERROR,
         zlib.Z_VERSION_ERROR => error.Z_VERSION_ERROR,
-        else => error.ZLibUnknown,
+        else => error.Z_UNKNOWN_ERROR,
     };
 }
 
@@ -205,11 +200,13 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
 
         const Input = struct {
             container: Container,
+            level: u4,
             bytes: []const u8,
             fn fromBytes(inbuf: []const u8) Input {
                 std.debug.assert(inbuf.len > 0);
                 return .{
                     .container = @enumFromInt(inbuf[0] % std.meta.fields(Container).len),
+                    .level = @intCast(4 + inbuf[1] % 6), // range 4-9
                     .bytes = inbuf[1..],
                 };
             }
@@ -224,6 +221,7 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
                 .allocator = std.testing.allocator,
                 .writer = &ow,
                 .container = input.container,
+                .level = input.level,
             });
             defer deflate.deinit();
 
@@ -260,8 +258,8 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
         }
     };
     var ctx: FlateFuzz = .{
-        .outbuf = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 20)),
-        .infbuf = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 20)),
+        .outbuf = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 30)),
+        .infbuf = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 30)),
     };
     defer {
         std.testing.allocator.free(ctx.outbuf);
@@ -270,9 +268,11 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
     {
         var comp_test_buffer: [4097]u8 = @splat(0);
         inline for (comptime std.meta.fields(Container)) |cf| {
-            std.log.warn("test compressing container: {s}", .{cf.name});
             comp_test_buffer[0] = cf.value;
-            try ctx.testOne(&comp_test_buffer);
+            for (4..10) |level| {
+                comp_test_buffer[1] = @intCast(level);
+                try ctx.testOne(&comp_test_buffer);
+            }
         }
     }
     try std.testing.fuzz(&ctx, FlateFuzz.testOne, .{});
