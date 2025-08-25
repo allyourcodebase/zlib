@@ -200,7 +200,7 @@ fn zLibError(ret: c_int) !void {
 
 test "fuzz compress zlib deflate -> zig stdlib inflate" {
     const FlateFuzz = struct {
-        ob: []u8,
+        outbuf: []u8,
         infbuf: []u8,
 
         const Input = struct {
@@ -219,7 +219,7 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
             if (inbuf.len < 10 or inbuf.len > 4097) return;
             const input = Input.fromBytes(inbuf);
 
-            var ow = std.Io.Writer.fixed(ctx.ob);
+            var ow = std.Io.Writer.fixed(ctx.outbuf);
             var deflate: Self = try .init(.{
                 .allocator = std.testing.allocator,
                 .writer = &ow,
@@ -260,11 +260,11 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
         }
     };
     var ctx: FlateFuzz = .{
-        .ob = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 20)),
+        .outbuf = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 20)),
         .infbuf = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 20)),
     };
     defer {
-        std.testing.allocator.free(ctx.ob);
+        std.testing.allocator.free(ctx.outbuf);
         std.testing.allocator.free(ctx.infbuf);
     }
     {
