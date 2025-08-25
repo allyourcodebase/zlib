@@ -196,7 +196,7 @@ fn zLibError(ret: c_int) !void {
 test "fuzz compress zlib deflate -> zig stdlib inflate" {
     const FlateFuzz = struct {
         outbuf: []u8,
-        infbuf: []u8,
+        inbuf: []u8,
 
         const Input = struct {
             container: Container,
@@ -213,7 +213,7 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
         };
 
         fn testOne(ctx: *@This(), inbuf: []const u8) anyerror!void {
-            if (inbuf.len < 10 or inbuf.len > 4097) return;
+            if (inbuf.len < 10 or inbuf.len > ctx.inbuf.len) return;
             const input = Input.fromBytes(inbuf);
 
             var ow = std.Io.Writer.fixed(ctx.outbuf);
@@ -232,7 +232,7 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
             var inf = Decompress.init(
                 &infr,
                 input.container,
-                ctx.infbuf,
+                ctx.inbuf,
             );
             try inf.reader.fillMore();
             const output = inf.reader.buffered();
@@ -259,11 +259,11 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
     };
     var ctx: FlateFuzz = .{
         .outbuf = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 30)),
-        .infbuf = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 30)),
+        .inbuf = try std.testing.allocator.alloc(u8, std.math.pow(usize, 2, 30)),
     };
     defer {
         std.testing.allocator.free(ctx.outbuf);
-        std.testing.allocator.free(ctx.infbuf);
+        std.testing.allocator.free(ctx.inbuf);
     }
     {
         var comp_test_buffer: [4097]u8 = @splat(0);
