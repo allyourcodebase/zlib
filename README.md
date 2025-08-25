@@ -22,3 +22,32 @@ your_compilation.linkLibrary(zlib_dep.artifact("z"));
 ```
 
 This will provide zlib as a static library to `your_compilation`.
+
+or, use the Deflate writer module:
+
+```zig
+
+const zlib_dep = b.dependency("zlib", .{
+    .target = target,
+    .optimize = optimize,
+});
+your_compilation.root_module.addImport("zlib", zlib_dep.module("zlib"));
+```
+
+and in your code:
+
+```
+const Deflate = @import("zlib").Deflate;
+var compressor = try Deflate.init(.{
+    .allocator = your_allocator,
+    .writer = &output.interface,
+    .container = .gzip,
+});
+defer compressor.deinit();
+
+// ...
+// write to compressor.writer
+// ...
+
+try compressor.finish();
+```

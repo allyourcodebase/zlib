@@ -1,13 +1,16 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
     const upstream = b.dependency("zlib", .{});
     const lib = b.addLibrary(.{
         .name = "z",
         .linkage = .static,
         .root_module = b.createModule(.{
-            .target = b.standardTargetOptions(.{}),
-            .optimize = b.standardOptimizeOption(.{}),
+            .target = target,
+            .optimize = optimize,
             .link_libc = true,
         }),
     });
@@ -44,4 +47,25 @@ pub fn build(b: *std.Build) void {
         },
     });
     b.installArtifact(lib);
+
+    const mod = b.addModule("zlib", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod.linkLibrary(lib);
+
+    const zlib_translate = b.addTranslateC(.{
+        .root_source_file = upstream.path("zlib.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod.addImport("zlib", zlib_translate.createModule());
+
+    const test_mod = b.addTest(.{
+        .root_module = mod,
+        .use_llvm = true,
+    });
+    const test_run = b.addRunArtifact(test_mod);
+    b.step("test", "test module").dependOn(&test_run.step);
 }
