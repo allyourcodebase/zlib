@@ -5,12 +5,13 @@ const Container = std.compress.flate.Container;
 const Decompress = std.compress.flate.Decompress;
 const zlib = @import("zlib_h");
 
-const CHUNKSIZE = 16 * 1024;
+pub const BUFSIZE = 16 * 1024;
 
 arena: *std.heap.ArenaAllocator,
 zstream_initialized: bool,
 container: Container,
 level: u4,
+window: u4,
 zstream: zlib.z_stream,
 outbuf: []u8,
 underlying_writer: *std.io.Writer,
@@ -18,9 +19,16 @@ writer: std.io.Writer,
 
 pub const Options = struct {
     allocator: std.mem.Allocator,
-    level: u4 = 9,
-    writer: *std.io.Writer,
+    // raw, zlib or gzip
     container: Container,
+    // compression level: range 4-9
+    level: u4 = 9,
+    // window bits: range 9-15
+    window: u4 = zlib.MAX_WBITS,
+    // input and output buffer size
+    bufsize: usize = BUFSIZE,
+    // output writer
+    writer: *std.io.Writer,
 };
 
 pub fn init(opt: Self.Options) !Self {
@@ -31,6 +39,7 @@ pub fn init(opt: Self.Options) !Self {
         .zstream_initialized = false,
         .container = opt.container,
         .level = opt.level,
+        .window = opt.window,
         .zstream = .{
             .zalloc = &zalloc,
             .zfree = &zfree,
@@ -41,9 +50,9 @@ pub fn init(opt: Self.Options) !Self {
             .avail_out = 0,
             .data_type = zlib.Z_BINARY,
         },
-        .outbuf = try arena.allocator().alloc(u8, CHUNKSIZE),
+        .outbuf = try arena.allocator().alloc(u8, opt.bufsize),
         .writer = .{
-            .buffer = try arena.allocator().alloc(u8, CHUNKSIZE),
+            .buffer = try arena.allocator().alloc(u8, opt.bufsize),
             .vtable = &.{
                 .drain = drain,
                 .flush = flush,
@@ -76,11 +85,11 @@ inline fn zStreamInit(self: *@This()) !void {
             &self.zstream,
             self.level,
             zlib.Z_DEFLATED,
-            @as(c_int, switch (self.container) {
-                .raw => -1 * zlib.MAX_WBITS,
-                .gzip => 16 + zlib.MAX_WBITS,
-                .zlib => zlib.MAX_WBITS,
-            }),
+            switch (self.container) {
+                .raw => -1 * @as(c_int, @intCast(self.window)),
+                .gzip => 16 + @as(c_int, @intCast(self.window)),
+                .zlib => @as(c_int, @intCast(self.window)),
+            },
             zlib.MAX_MEM_LEVEL,
             zlib.Z_DEFAULT_STRATEGY,
         ));
@@ -203,17 +212,17 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
             level: u4,
             bytes: []const u8,
             fn fromBytes(inbuf: []const u8) Input {
-                std.debug.assert(inbuf.len > 0);
+                std.debug.assert(inbuf.len >= 3);
                 return .{
                     .container = @enumFromInt(inbuf[0] % std.meta.fields(Container).len),
-                    .level = @intCast(4 + inbuf[1] % 6), // range 4-9
-                    .bytes = inbuf[1..],
+                    .level = @intCast(4 + inbuf[1] % 6),
+                    .bytes = inbuf[3..],
                 };
             }
         };
 
         fn testOne(ctx: *@This(), inbuf: []const u8) anyerror!void {
-            if (inbuf.len < 10 or inbuf.len > ctx.inbuf.len) return;
+            if (inbuf.len < 10 or inbuf.len > ctx.outbuf.len) return;
             const input = Input.fromBytes(inbuf);
 
             var ow = std.Io.Writer.fixed(ctx.outbuf);
