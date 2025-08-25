@@ -2,12 +2,9 @@ const std = @import("std");
 const Io = std.Io;
 const Self = @This();
 const Deflater = Self;
-pub const Container = std.compress.flate.Container;
+const Container = std.compress.flate.Container;
 const Decompress = std.compress.flate.Decompress;
-
-// needs to link:
-// https://github.com/allyourcodebase/zlib
-const zlib = @import("zlib");
+const zlib = @import("zlib_h");
 
 const CHUNKSIZE = 16 * 1024;
 
@@ -240,13 +237,16 @@ test "fuzz compress zlib deflate -> zig stdlib inflate" {
                 input.container,
                 ctx.infbuf,
             );
-            const output = try inf.reader.take(input.bytes.len);
+            try inf.reader.fillMore();
+            const output = inf.reader.buffered();
 
             std.testing.expect(std.mem.eql(u8, input.bytes, output)) catch |err| {
                 for (input.bytes, 0..) |_, it| {
                     if (output.len < it or input.bytes[it] != output[it]) {
-                        std.log.err("expected (@offset {}): 0x{x}", .{ it, input.bytes[it..] });
-                        std.log.err("actual   (@offset {}): 0x{x}", .{ it, output[it..] });
+                        const inslice = input.bytes[it..];
+                        const outslice = output[it..];
+                        std.log.err("expected (@offset {}): 0x{x}", .{ it, inslice[0..@max(100, inslice.len)] });
+                        std.log.err("actual   (@offset {}): 0x{x}", .{ it, outslice[0..@max(100, outslice.len)] });
                         break;
                     }
                 }

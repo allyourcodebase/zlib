@@ -60,7 +60,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    mod.addImport("zlib", zlib_translate.createModule());
+    mod.addImport("zlib_h", zlib_translate.createModule());
 
     const test_mod = b.addTest(.{
         .root_module = mod,
