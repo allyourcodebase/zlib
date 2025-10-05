@@ -2,10 +2,13 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const upstream = b.dependency("zlib", .{});
-    const lib = b.addStaticLibrary(.{
+    const lib = b.addLibrary(.{
+        .linkage = .static,
         .name = "z",
-        .target = b.standardTargetOptions(.{}),
-        .optimize = b.standardOptimizeOption(.{}),
+        .root_module = b.createModule(.{
+            .target = b.standardTargetOptions(.{}),
+            .optimize = b.standardOptimizeOption(.{}),
+        }),
     });
     lib.linkLibC();
     lib.addCSourceFiles(.{
