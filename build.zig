@@ -1,6 +1,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
+    const pic = b.option(bool, "pie", "Produce Position Independent Code");
     const upstream = b.dependency("zlib", .{});
     const lib = b.addLibrary(.{
         .name = "z",
@@ -9,8 +10,19 @@ pub fn build(b: *std.Build) void {
             .target = b.standardTargetOptions(.{}),
             .optimize = b.standardOptimizeOption(.{}),
             .link_libc = true,
+            .pic = pic,
         }),
     });
+
+    const base_cflags = [_][]const u8{
+        "-DHAVE_SYS_TYPES_H",
+        "-DHAVE_STDINT_H",
+        "-DHAVE_STDDEF_H",
+        "-DZ_HAVE_UNISTD_H",
+    };
+    const cflags_with_pic = base_cflags ++ [_][]const u8{"-fPIC"};
+    const cflags = if (pic orelse false) &cflags_with_pic else &base_cflags;
+
     lib.addCSourceFiles(.{
         .root = upstream.path(""),
         .files = &.{
@@ -30,12 +42,7 @@ pub fn build(b: *std.Build) void {
             "gzread.c",
             "gzwrite.c",
         },
-        .flags = &.{
-            "-DHAVE_SYS_TYPES_H",
-            "-DHAVE_STDINT_H",
-            "-DHAVE_STDDEF_H",
-            "-DZ_HAVE_UNISTD_H",
-        },
+        .flags = cflags,
     });
     lib.installHeadersDirectory(upstream.path(""), "", .{
         .include_extensions = &.{
