@@ -3,14 +3,14 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const upstream = b.dependency("zlib", .{});
     const lib = b.addLibrary(.{
-        .linkage = .static,
         .name = "z",
+        .linkage = .static,
         .root_module = b.createModule(.{
             .target = b.standardTargetOptions(.{}),
             .optimize = b.standardOptimizeOption(.{}),
+            .link_libc = true,
         }),
     });
-    lib.linkLibC();
     lib.addCSourceFiles(.{
         .root = upstream.path(""),
         .files = &.{
