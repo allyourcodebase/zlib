@@ -2,7 +2,7 @@
     .name = .zlib,
     .version = "1.3.1",
     .fingerprint = 0x73887d3a953b9465,
-    .minimum_zig_version = "0.14.0",
+    .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .zlib = .{
             .url = "https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz",
