@@ -23,7 +23,7 @@ pub fn build(b: *std.Build) void {
     const cflags_with_pic = base_cflags ++ [_][]const u8{"-fPIC"};
     const cflags = if (pic orelse false) &cflags_with_pic else &base_cflags;
 
-    lib.addCSourceFiles(.{
+    lib.root_module.addCSourceFiles(.{
         .root = upstream.path(""),
         .files = &.{
             "adler32.c",
